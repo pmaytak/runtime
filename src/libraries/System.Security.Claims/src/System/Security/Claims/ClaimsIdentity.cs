@@ -16,6 +16,11 @@ namespace System.Security.Claims
     [DebuggerDisplay("{DebuggerToString(),nq}")]
     public class ClaimsIdentity : IIdentity
     {
+        /// <summary>
+        /// StringComparison value used only for comparing claim types, not claim values.
+        /// </summary>
+        private readonly StringComparison _stringComparison = StringComparison.OrdinalIgnoreCase;
+
         private enum SerializationMask
         {
             None = 0,
@@ -119,6 +124,37 @@ namespace System.Security.Claims
         public ClaimsIdentity(string? authenticationType, string? nameType, string? roleType)
             : this((IIdentity?)null, (IEnumerable<Claim>?)null, authenticationType, nameType, roleType)
         {
+        }
+
+        /// <summary>
+        /// Initializes an instance of <see cref="ClaimsIdentity"/>.
+        /// </summary>
+        /// <param name="identity"><see cref="IIdentity"/> supplies the <see cref="Name"/> and <see cref="AuthenticationType"/>.</param>
+        /// <param name="claims"><see cref="IEnumerable{Claim}"/> associated with this instance.</param>
+        /// <param name="authenticationType">The type of authentication used.</param>
+        /// <param name="nameType">The <see cref="Claim.Type"/> used when obtaining the value of <see cref="ClaimsIdentity.Name"/>.</param>
+        /// <param name="roleType">The <see cref="Claim.Type"/> used when performing logic for <see cref="ClaimsPrincipal.IsInRole"/>.</param>
+        /// <param name="stringComparison">The <see cref="StringComparison"/> used for claim type comparisons.</param>
+        /// <remarks>If 'identity' is a <see cref="ClaimsIdentity"/>, then there are potentially multiple sources for AuthenticationType, NameClaimType, RoleClaimType.
+        /// <para>Priority is given to the parameters: authenticationType, nameClaimType, roleClaimType.</para>
+        /// <para>All <see cref="Claim"/>s are copied into this instance in a <see cref="List{Claim}"/>. Each Claim is examined and if Claim.Subject != this, then Claim.Clone(this) is called before the claim is added.</para>
+        /// <para>Any 'External' claims are ignored.</para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">if 'identity' is a <see cref="ClaimsIdentity"/> and <see cref="ClaimsIdentity.Actor"/> results in a circular reference back to 'this'.</exception>
+        public ClaimsIdentity(
+            IIdentity? identity = null,
+            IEnumerable<Claim>? claims = null,
+            string? authenticationType = null,
+            string? nameType = null,
+            string? roleType = null,
+            StringComparison stringComparison = StringComparison.OrdinalIgnoreCase)
+            : this(identity, claims, authenticationType, nameType, roleType)
+        {
+            if (stringComparison != StringComparison.Ordinal && stringComparison != StringComparison.OrdinalIgnoreCase)
+            {
+                throw new ArgumentException("Only Ordinal and OrdinalIgnoreCase string comparisons are supported.", nameof(stringComparison));
+            }
+            _stringComparison = stringComparison;
         }
 
         /// <summary>
@@ -579,7 +615,7 @@ namespace System.Security.Claims
                 {
                     if (claim != null)
                     {
-                        if (string.Equals(claim.Type, type, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(claim.Type, type, _stringComparison))
                         {
                             yield return claim;
                         }
@@ -624,7 +660,7 @@ namespace System.Security.Claims
             {
                 if (claim != null)
                 {
-                    if (string.Equals(claim.Type, type, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(claim.Type, type, _stringComparison))
                     {
                         return claim;
                     }
@@ -672,7 +708,7 @@ namespace System.Security.Claims
             foreach (Claim claim in Claims)
             {
                 if (claim != null
-                        && string.Equals(claim.Type, type, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(claim.Type, type, _stringComparison)
                         && string.Equals(claim.Value, value, StringComparison.Ordinal))
                 {
                     return true;
